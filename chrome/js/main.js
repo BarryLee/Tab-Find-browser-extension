@@ -1,10 +1,21 @@
 $(function () {
+  var devMode = 1;
+  if (devMode) {
+    $('#debugbox').show();
+  }
+  var KEYCODE_DOWN = 40;
+  var KEYCODE_UP = 38;
+  var KEYCODE_ENTER = 13;
+
   var tabSearchIndex = { titles : {}, urls : {} };
+  var currentSelection = -1;
 
   function debug(msg) {
-    var $debugBox = $('#debugbox');
-    var curVal = $debugBox.val();
-    $debugBox.val(curVal ? (msg + '\n' + curVal) : msg);
+    if (devMode) {
+      var $debugBox = $('#debugbox');
+      var curVal = $debugBox.val();
+      $debugBox.val(curVal ? (msg + '\n' + curVal) : msg);
+    }
   }
 
   function dumpCurrentTab() {
@@ -19,14 +30,28 @@ $(function () {
 
   function TabFuture(tab) {
     this.status = tab.status;
-    if (tab.status != 'completed') {
-    }
     this.tabId = tab.id;
     this.url = tab.url;
     this.title = tab.title;
     this.favIconUrl = tab.favIconUrl;
     this.index = tab.index;
     this.highlighted = tab.highlighted;
+    if (tab.status != 'complete') {
+      var _this = this;
+      /*
+      chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+        if (_this.tabId == tabId) {
+          _this.status = changeInfo.status || tab.status;
+          _this.url = changeInfo.url || tab.url;
+          _this.title = tab.title;
+          _this.favIconUrl = changeInfo.favIconUrl || tab.favIconUrl;
+          if (changeInfo.status == 'complete') {
+            chrome.tabs.onUpdated.removeListener
+          }
+        }
+      });
+      */
+    }
   }
 
   TabFuture.prototype.onReady = function (callback) {
@@ -34,7 +59,7 @@ $(function () {
 
   function sysQueryTabs(opts, callback) {
     chrome.tabs.query(opts, function (tabs) {
-      debug(tabs.length);
+      //debug(tabs.length);
       var tabList = [];
       for (var i = 0; i < tabs.length; i++) {
         var tab = tabs[i];
@@ -98,26 +123,22 @@ $(function () {
     }
   }
 
-  function bindTabClickHandler(container) {
+  function switchToTab(tabIdx) {
     var noop = function (tabs) {window.close()};
+    chrome.tabs.highlight({ tabs: tabIdx }, noop);
+  }
+
+  function bindTabClickHandler(container) {
     $(container).on('click', 'li.tab', function (e) {
-      var $this = $(this);
-      debug($this.attr('tabIdx') + " is clicked");
-      chrome.tabs.highlight({ tabs: parseInt($this.attr('tabIdx')) }, noop);
+      switchToTab(parseInt($(this).attr('tabIdx')));
+      //var $this = $(this);
+      //debug($this.attr('tabIdx') + " is clicked");
+      //chrome.tabs.highlight({ tabs: parseInt($this.attr('tabIdx')) }, noop);
     });
   }
 
   function searchTabs(query) {
- //   query = '*' + query + '*';
- //   //query = '*chrome*';
- //   sysQueryTabs({ title: query }, function (tabs) {
- //     debug('title:' + query);
- //     debug('got ' + tabs.length + ' results');
- //     $searchResultsArea = $('#results');
- //     $searchResultsArea.children('span.resultsTitle').html('results');
- //     updateUITabList($searchResultsArea.children('ul.tabList'), tabs);
- //   });
-    debug('query:' + query);
+    //debug('query:' + query);
     var results = {};
     var indexes = [tabSearchIndex.titles, tabSearchIndex.urls];
     for (var i = 0; i < indexes.length; i++) {
@@ -141,7 +162,7 @@ $(function () {
     }
     results = resultsArr;
 
-    debug('got ' + results.length + ' results');
+    //debug('got ' + results.length + ' results');
     $searchResultsArea = $('#results');
     $searchResultsArea.children('span.resultsTitle').html('results');
     updateUITabList($searchResultsArea.children('ul.tabList'), results);
@@ -151,18 +172,101 @@ $(function () {
     var $searchInputBox = $('#search');
     var timeout;
     $searchInputBox.on('keydown', function (e) {
-      clearTimeout(timeout);
-    }).on('keyup', function (e) {
+      if (e.keyCode == KEYCODE_DOWN) {
+        $searchInputBox.blur();
+      } else if (e.keyCode == KEYCODE_UP) {
+        return false;
+      } else {
+        clearTimeout(timeout);
+      }
+    })
+    .on('keyup', function (e) {
       var timeout = setTimeout(function () {
         $('#results>ul.tabList').empty();
         var query = $searchInputBox.val().trim().toLowerCase();
-        debug('search for ' + query);
+        //debug('search for ' + query);
         if (query.length < 3) {
           return;
         }
         searchTabs(query);
       }, 300);
-    });
+    })
+    //.focus() // TODO make sure it works
+    ;
+    setCaretToPos($searchInputBox.get(0), 0);
+  }
+
+  function moveSelection(direction) {
+    //debug(direction);
+    var $tabLists = $('ul.tabList');
+    var numTabLists = $tabLists.length;
+    debug('numTabLists='+numTabLists);
+    
+    var $currentSelected = $('ul.tabList>li.tab.preselect');
+    var i = -1; // current selected tab list index
+
+    if ($currentSelected.length) {
+      var navFunc = direction > 0 ? $currentSelected.next : $currentSelected.prev;
+      debug('deselect current');
+      $currentSelected.removeClass('preselect');
+      $newSelect = navFunc.call($currentSelected, 'li.tab');
+      if ($newSelect.length) {
+        $newSelect.addClass('preselect');
+        return true;
+      } else {
+        debug('cross lists');
+        var $list = $currentSelected.parent('ul.tabList');
+        $tabLists.each(function (idx, elem) {
+          debug('elem='+elem);
+          debug('idx='+idx);
+          if (elem == $list.get(0)) {
+            i = idx;
+            debug('i='+i);
+            return false;
+          }
+        });
+      }
+    }
+
+    var childSelector;
+    if (direction > 0) {
+      i++;
+      if (i >= numTabLists) {
+        return true;
+      }
+      childSelector = 'li.tab:first-child';
+    } else {
+      i--;
+      if (i < 0) {
+        setCaretToEnd($('#search').get(0));
+        return false;
+      }
+      childSelector = 'li.tab:last-child';
+    }
+    $tabLists.filter(':eq('+i+')')
+      .children(childSelector).addClass('preselect');
+  }
+
+  function switchToSelectedTab() {
+    switchToTab(parseInt($('li.preselect').attr('tabIdx')));
+  }
+
+  function bindKeyboardHandlers() {
+    $(document).on('keydown', function (e) {
+      //debug(e.keyCode);
+      switch (e.keyCode) {
+        case KEYCODE_DOWN:
+          return moveSelection(1);
+          break;
+        case KEYCODE_UP:
+          return moveSelection(-1);
+          break;
+        case KEYCODE_ENTER:
+          return switchToSelectedTab();
+          break;
+      }
+      return true;
+    })
   }
 
   function init() {
@@ -175,6 +279,9 @@ $(function () {
 
     // Init search component
     initSearchComp();
+
+    // Bind keyboard handlers
+    bindKeyboardHandlers();
   }
 
   // Initialize extension
