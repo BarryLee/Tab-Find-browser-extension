@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Tab Find</title>
+    <style>
+      body {
+        min-width: 357px;
+        overflow-x: hidden;
+        font-size: 13px;
+        color: #333;
+      }
+
+      #debugbox {
+        width: 90%;
+        margin: 5px auto;
+        height: 120px;
+        display: block;
+      }
+
+      #search {
+      }
+
+      #clear {
+      }
+
+      #results {
+      }
+
+      #alltabs {
+      }
+
+      ul.tabList {
+        padding-left: 5px;
+      }
+
+      li.tab {
+        cursor: pointer;
+        list-style: none;
+        margin: 5px 0;
+      }
+
+      li.tab.highlight > span.tabTitle {
+        background-color: rgb(255, 208, 121);
+      }
+
+      li.tab:hover > span.tabTitle {
+        background-color: rgb(255, 208, 121);
+      }
+
+      li.tab>img.tabFavicon {
+        width: 16px;
+        height: 16px;
+        display: inline-block;
+        margin-right: 5px;
+      }
+
+      li.tab>span.tabTitle {
+        width: 310px;
+        display: inline-block;
+        overflow: hidden;
+        word-wrap: break-word;
+        height: 14px;
+        line-height: 14px;
+        padding: 2px 0 0 2px;
+      }
+    </style>
+
+    <!--
+      - JavaScript and HTML must be in separate files: see our Content Security
+      - Policy documentation[1] for details and explanation.
+      -
+      - [1]: http://developer.chrome.com/extensions/contentSecurityPolicy.html
+     -->
+    <script src="js/jquery-1.10.2.min.js"></script>
+    <script src="js/main.js"></script>
+  </head>
+  <body>
+    <!-- TODO add default input value -->
+    <textarea id="debugbox"></textarea>
+    <input id="search" type="text"/>
+    <input id="clear" type="button" value="clear"/>
+    <div id="results">
+        <span class="resultsTitle"></span>
+    	<ul class="tabList"></ul>
+    </div>
+    <hr/>
+    <div id="alltabs">
+    	<ul class="tabList"></ul>
+    </div>
+  </body>
+</html>
+
