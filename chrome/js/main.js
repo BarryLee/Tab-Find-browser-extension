@@ -1,5 +1,5 @@
 $(function () {
-  var devMode = 1;
+  var devMode = 0;
   if (devMode) {
     $('#debugbox').show();
   }
@@ -212,7 +212,8 @@ $(function () {
       $newSelect = navFunc.call($currentSelected, 'li.tab');
       if ($newSelect.length) {
         $newSelect.addClass('preselect');
-        return true;
+        //return true;
+        return false;
       } else {
         debug('cross lists');
         var $list = $currentSelected.parent('ul.tabList');
@@ -222,29 +223,38 @@ $(function () {
           if (elem == $list.get(0)) {
             i = idx;
             debug('i='+i);
-            return false;
+            return false; // break out from each
           }
         });
       }
     }
 
     var childSelector;
-    if (direction > 0) {
-      i++;
-      if (i >= numTabLists) {
-        return true;
+    var $nextList;
+    do {
+      if (direction > 0) {
+          i++;
+          if (i >= numTabLists) {
+            debug('at bottom');
+            $currentSelected.addClass('preselect');
+            //return true;
+            return false;
+          }
+          childSelector = 'li.tab:first-child';
+      } else {
+        i--;
+        if (i < 0) {
+          setCaretToEnd($('#search').get(0));
+          return false;
+        }
+        childSelector = 'li.tab:last-child';
       }
-      childSelector = 'li.tab:first-child';
-    } else {
-      i--;
-      if (i < 0) {
-        setCaretToEnd($('#search').get(0));
-        return false;
-      }
-      childSelector = 'li.tab:last-child';
-    }
-    $tabLists.filter(':eq('+i+')')
+      $nextList = $tabLists.filter(':eq('+i+')');
+    } while ($nextList.children().length == 0);
+
+    $nextList
       .children(childSelector).addClass('preselect');
+    return false;
   }
 
   function switchToSelectedTab() {
