@@ -17,6 +17,8 @@ $(function () {
   var TAB_ITEM_SELECTOR = 'li.tab';
   var TAB_LIST_SELECTOR = 'ul.tabList';
 
+  var minQueryLen = 2;
+
   function debug(msg) {
     if (devMode) {
       var $debugBox = $('#debugbox');
@@ -183,24 +185,24 @@ $(function () {
     var timeout;
     $searchInputBox.on('keydown', function (e) {
       if (e.keyCode != KEYCODE_DOWN && e.keyCode != KEYCODE_UP
-	      && e.keyCode != KEYCODE_ENTER) {
+          && e.keyCode != KEYCODE_ENTER) {
         clearTimeout(timeout);
       }
     })
     .on('keyup', function (e) {
       if (e.keyCode == KEYCODE_DOWN || e.keyCode == KEYCODE_UP
-	      || e.keyCode == KEYCODE_ENTER) {
-	return;
+          || e.keyCode == KEYCODE_ENTER) {
+    return;
       }
       var timeout = setTimeout(function () {
         var query = $searchInputBox.val().trim().toLowerCase();
-	// Do nothing if the query hasn't changed since last finished search
-	if (query == $searchInputBox.data("currentQuery")) {
+    // Do nothing if the query hasn't changed since last finished search
+    if (query == $searchInputBox.data("currentQuery")) {
           return;
-	}
+    }
         $('#results>ul.tabList').empty();
         //debug('search for ' + query);
-        if (query.length < 3) {
+        if (query.length < minQueryLen) {
           // Have to update this otherwise later searches won't start
           $searchInputBox.data("currentQuery", query);
           return;
@@ -281,9 +283,9 @@ $(function () {
     if ($selectedTab.length) {
       switchToTab(parseInt($selectedTab.attr('tabIdx')));
     } else {
-      if ($searchResultTabList.children(TAB_ITEM_SELECTOR).length == 1) {
-	switchToTab(parseInt($searchResultTabList
-			.children(TAB_ITEM_SELECTOR).attr('tabIdx')));
+      if ($searchResultTabList.children(TAB_ITEM_SELECTOR).length) {
+    switchToTab(parseInt($searchResultTabList
+            .children(TAB_ITEM_SELECTOR + ':first-child').attr('tabIdx')));
       }
     }
   }

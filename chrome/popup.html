@@ -7,7 +7,7 @@
         width: 357px;
         max-height: 600px;
         overflow-x: hidden;
-        font-size: 13px;
+        font: 14px 'Open Sans',arial,sans-serif;
         color: #333;
       }
 
@@ -38,21 +38,21 @@
         cursor: pointer;
         list-style: none;
         margin: 5px 0;
-	position: relative;
+        position: relative;
       }
 
       li.tab:before {
-	content: "\0";
-	display: inline-block;
-	width: 3px;
-	height: 20px;
-	margin-right: 5px;
-	position: relative;
-	bottom: 6px;
+        content: "\0";
+        display: inline-block;
+        width: 3px;
+        height: 20px;
+        margin-right: 5px;
+        position: relative;
+        bottom: 6px;
       }
 
       li.tab.highlight:before {
-	background-color: rgb(255, 163, 0);
+        background-color: rgb(255, 163, 0);
       }
 
       li.tab:hover > span.tabTitle {
@@ -78,7 +78,7 @@
         height: 14px;
         line-height: 15px;
         padding: 2px 0 2px 3px;
-	border-radius: 3px;
+        border-radius: 3px;
       }
     </style>
 
@@ -99,11 +99,11 @@
     <input id="clear" type="button" value="clear"/>
     <div id="results">
         <span class="resultsTitle"></span>
-    	<ul id="resultTabList" class="tabList"></ul>
+        <ul id="resultTabList" class="tabList"></ul>
     </div>
     <hr/>
     <div id="alltabs">
-    	<ul id="allTabList" class="tabList"></ul>
+        <ul id="allTabList" class="tabList"></ul>
     </div>
   </body>
 </html>
