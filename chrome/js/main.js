@@ -10,6 +10,8 @@ $(function () {
   var tabSearchIndex = { titles : {}, urls : {} };
   var currentSelection = -1;
 
+  var $searchInputBox = $('#search');
+
   function debug(msg) {
     if (devMode) {
       var $debugBox = $('#debugbox');
@@ -166,24 +168,30 @@ $(function () {
     $searchResultsArea = $('#results');
     $searchResultsArea.children('span.resultsTitle').html('results');
     updateUITabList($searchResultsArea.children('ul.tabList'), results);
+    // Save the current succeeded query for camparing with later input values
+    $searchInputBox.data("currentQuery", query);
   }
 
   function initSearchComp() {
-    var $searchInputBox = $('#search');
     var timeout;
     $searchInputBox.on('keydown', function (e) {
-      if (e.keyCode == KEYCODE_DOWN) {
-        $searchInputBox.blur();
-      } else if (e.keyCode == KEYCODE_UP) {
-        return false;
-      } else {
+      if (e.keyCode != KEYCODE_DOWN && e.keyCode != KEYCODE_UP
+	      && e.keyCode != KEYCODE_ENTER) {
         clearTimeout(timeout);
       }
     })
     .on('keyup', function (e) {
+      if (e.keyCode == KEYCODE_DOWN || e.keyCode == KEYCODE_UP
+	      || e.keyCode == KEYCODE_ENTER) {
+	return;
+      }
       var timeout = setTimeout(function () {
-        $('#results>ul.tabList').empty();
         var query = $searchInputBox.val().trim().toLowerCase();
+	// Do nothing if the query hasn't changed since last succeeded search
+	if (query == $searchInputBox.data("currentQuery")) {
+          return;
+	}
+        $('#results>ul.tabList').empty();
         //debug('search for ' + query);
         if (query.length < 3) {
           return;
@@ -196,7 +204,7 @@ $(function () {
     setCaretToPos($searchInputBox.get(0), 0);
   }
 
-  function moveSelection(direction) {
+  function moveSelect(direction) {
     //debug(direction);
     var $tabLists = $('ul.tabList');
     var numTabLists = $tabLists.length;
@@ -244,7 +252,7 @@ $(function () {
       } else {
         i--;
         if (i < 0) {
-          setCaretToEnd($('#search').get(0));
+          setCaretToEnd($searchInputBox.get(0));
           return false;
         }
         childSelector = 'li.tab:last-child';
@@ -266,10 +274,10 @@ $(function () {
       //debug(e.keyCode);
       switch (e.keyCode) {
         case KEYCODE_DOWN:
-          return moveSelection(1);
+          return moveSelect(1);
           break;
         case KEYCODE_UP:
-          return moveSelection(-1);
+          return moveSelect(-1);
           break;
         case KEYCODE_ENTER:
           return switchToSelectedTab();
