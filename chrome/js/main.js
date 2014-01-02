@@ -11,6 +11,11 @@ $(function () {
   var currentSelection = -1;
 
   var $searchInputBox = $('#search');
+  // TODO use this to replace others
+  var $searchResultTabList = $('#resultTabList');
+  // TODO use this to replace others
+  var TAB_ITEM_SELECTOR = 'li.tab';
+  var TAB_LIST_SELECTOR = 'ul.tabList';
 
   function debug(msg) {
     if (devMode) {
@@ -167,9 +172,11 @@ $(function () {
     //debug('got ' + results.length + ' results');
     $searchResultsArea = $('#results');
     $searchResultsArea.children('span.resultsTitle').html('results');
-    updateUITabList($searchResultsArea.children('ul.tabList'), results);
-    // Save the current succeeded query for camparing with later input values
+    // Save the current finished query for camparing with later input values
     $searchInputBox.data("currentQuery", query);
+    if (results.length) {
+      updateUITabList($searchResultsArea.children(TAB_LIST_SELECTOR), results);
+    }
   }
 
   function initSearchComp() {
@@ -187,13 +194,15 @@ $(function () {
       }
       var timeout = setTimeout(function () {
         var query = $searchInputBox.val().trim().toLowerCase();
-	// Do nothing if the query hasn't changed since last succeeded search
+	// Do nothing if the query hasn't changed since last finished search
 	if (query == $searchInputBox.data("currentQuery")) {
           return;
 	}
         $('#results>ul.tabList').empty();
         //debug('search for ' + query);
         if (query.length < 3) {
+          // Have to update this otherwise later searches won't start
+          $searchInputBox.data("currentQuery", query);
           return;
         }
         searchTabs(query);
@@ -206,7 +215,7 @@ $(function () {
 
   function moveSelect(direction) {
     //debug(direction);
-    var $tabLists = $('ul.tabList');
+    var $tabLists = $(TAB_LIST_SELECTOR);
     var numTabLists = $tabLists.length;
     debug('numTabLists='+numTabLists);
     
@@ -224,7 +233,7 @@ $(function () {
         return false;
       } else {
         debug('cross lists');
-        var $list = $currentSelected.parent('ul.tabList');
+        var $list = $currentSelected.parent(TAB_LIST_SELECTOR);
         $tabLists.each(function (idx, elem) {
           debug('elem='+elem);
           debug('idx='+idx);
@@ -241,18 +250,20 @@ $(function () {
     var $nextList;
     do {
       if (direction > 0) {
-          i++;
-          if (i >= numTabLists) {
-            debug('at bottom');
-            $currentSelected.addClass('preselect');
-            //return true;
-            return false;
-          }
-          childSelector = 'li.tab:first-child';
+        i++;
+        if (i >= numTabLists) {
+          debug('at bottom');
+          $currentSelected.addClass('preselect');
+          //return true;
+          return false;
+        }
+        childSelector = 'li.tab:first-child';
       } else {
         i--;
         if (i < 0) {
-          setCaretToEnd($searchInputBox.get(0));
+          debug('at top');
+          $currentSelected.addClass('preselect');
+          //setCaretToEnd($searchInputBox.get(0));
           return false;
         }
         childSelector = 'li.tab:last-child';
@@ -266,7 +277,15 @@ $(function () {
   }
 
   function switchToSelectedTab() {
-    switchToTab(parseInt($('li.preselect').attr('tabIdx')));
+    var $selectedTab = $('li.preselect');
+    if ($selectedTab.length) {
+      switchToTab(parseInt($selectedTab.attr('tabIdx')));
+    } else {
+      if ($searchResultTabList.children(TAB_ITEM_SELECTOR).length == 1) {
+	switchToTab(parseInt($searchResultTabList
+			.children(TAB_ITEM_SELECTOR).attr('tabIdx')));
+      }
+    }
   }
 
   function bindKeyboardHandlers() {
@@ -293,7 +312,7 @@ $(function () {
     createAllTabList();
     
     // Bind click handlers
-    bindTabClickHandler('ul.tabList');
+    bindTabClickHandler(TAB_LIST_SELECTOR);
 
     // Init search component
     initSearchComp();
