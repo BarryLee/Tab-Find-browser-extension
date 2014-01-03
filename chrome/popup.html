@@ -19,9 +19,11 @@
       }
 
       #search {
+        width: 61.8%;
       }
 
       #clear {
+        border: 1px solid silver;
       }
 
       #results {
@@ -37,7 +39,8 @@
       li.tab {
         cursor: pointer;
         list-style: none;
-        margin: 5px 0;
+        padding: 5px 0 5px 5px;
+	margin: 2px 0;
         position: relative;
       }
 
@@ -45,22 +48,23 @@
         content: "\0";
         display: inline-block;
         width: 3px;
-        height: 20px;
-        margin-right: 5px;
-        position: relative;
-        bottom: 6px;
+        height: 27px;
+        position: absolute;
+        bottom: 0px;
+	left: -3px
+      }
+
+      li.tab>* {
+	vertical-align: middle;
       }
 
       li.tab.highlight:before {
         background-color: rgb(255, 163, 0);
       }
 
-      li.tab:hover > span.tabTitle {
+      li.tab:hover,li.tab.preselect {
         background-color: rgb(255, 208, 121);
-      }
-
-      li.tab.preselect > span.tabTitle {
-        background-color: rgb(255, 208, 121);
+	background-color: rgb(255, 222, 160);
       }
 
       li.tab>img.tabFavicon {
@@ -75,10 +79,8 @@
         display: inline-block;
         overflow: hidden;
         word-wrap: break-word;
-        height: 14px;
-        line-height: 15px;
-        padding: 2px 0 2px 3px;
-        border-radius: 3px;
+        height: 16px;
+        line-height: 16px;
       }
     </style>
 
