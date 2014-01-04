@@ -10,6 +10,11 @@
     "default_popup": "popup.html"
   },
 
+  "background": {
+    "scripts": ["js/recentTabs.js"],
+    "persistent": false
+  },
+
   "permissions": [
     "tabs",
     "storage"

@@ -6,18 +6,26 @@ $(function () {
   var KEYCODE_DOWN = 40;
   var KEYCODE_UP = 38;
   var KEYCODE_ENTER = 13;
+  var KEYCODE_BACKSPACE = 8;
 
   var tabSearchIndex = { titles : {}, urls : {} };
   var currentSelection = -1;
 
   var $searchInputBox = $('#search');
-  // TODO use this to replace others
   var $searchResultTabList = $('#resultTabList');
+  var $allTabList = $('#allTabList');
+  var $resultsTitle = $('#resultsTitle');
   // TODO use this to replace others
   var TAB_ITEM_SELECTOR = 'li.tab';
   var TAB_LIST_SELECTOR = 'ul.tabList';
 
-  var minQueryLen = 2;
+  // Local storage key for recent tabs
+  var REC_KEY_PREFIX = "recentTabs#";
+
+  var MIN_QUERY_LEN = 2;
+  var NUM_RECENT_SHOWN = 5;
+
+  var currentWinId = chrome.windows.WINDOW_ID_CURRENT;
 
   function debug(msg) {
     if (devMode) {
@@ -28,13 +36,33 @@ $(function () {
   }
 
   function dumpCurrentTab() {
-    chrome.tabs.query({active: true, windowId: chrome.windows.WINDOW_ID_CURRENT}, function (tab) {
+    chrome.tabs.query({active: true, windowId: currentWinId}, function (tab) {
       tab = tab[0];
-      debug("current tab=" + tab);
+      debug("current tab=" + tab.index);
       for (var prop in tab) {
         debug(prop + "=" + tab[prop]);
       }
     })
+  }
+
+  function dumpCurrentWindow() {
+    chrome.windows.getCurrent({}, function (win) {
+      for (var prop in win) {
+        debug(prop + "=" + win[prop]);
+      }
+    });
+  }
+
+  function getRecentTabsRecord(callback) {
+    chrome.windows.getCurrent({}, function (win) {
+      var key = REC_KEY_PREFIX + win.id;
+      //debug('key=' + key);
+      chrome.storage.local.get(key, function (item) {
+        //debug(item[key]);
+        var curWinRecentTabs = item[key] || [];
+        callback(curWinRecentTabs);
+      });
+    });
   }
 
   function TabFuture(tab) {
@@ -66,13 +94,21 @@ $(function () {
   TabFuture.prototype.onReady = function (callback) {
   }
 
-  function sysQueryTabs(opts, callback) {
+  function sysQueryTabs(opts, recentTabIds, callback) {
     chrome.tabs.query(opts, function (tabs) {
       //debug(tabs.length);
       var tabList = [];
+      var recentTabIdRank = {};
+      for (var i = 0; i < recentTabIds.length; i++) {
+        // NOTE: reverse order so that 0 is last
+        recentTabIdRank[recentTabIds[i]] = recentTabIds.length - i;
+      }
       for (var i = 0; i < tabs.length; i++) {
         var tab = tabs[i];
-        tabList.push(new TabFuture(tab));
+        var tabItem = new TabFuture(tab);
+        // Rank in Most Recent Used list
+        tabItem.mruRank = recentTabIdRank[tab.id] || 0;
+        tabList.push(tabItem);
       }
       callback(tabList);
     });
@@ -95,9 +131,21 @@ $(function () {
   }
 
   function createAllTabList() {
-    sysQueryTabs({windowId: chrome.windows.WINDOW_ID_CURRENT}, function (tabList) {
-      updateSearchIndex(tabList);
-      updateUITabList($('#alltabs>ul.tabList'), tabList);
+    getRecentTabsRecord(function (recentTabIds) {
+      sysQueryTabs({windowId: currentWinId}, recentTabIds, function (tabList) {
+        updateSearchIndex(tabList);
+        updateUITabList($allTabList, tabList);
+        $('#allTitle').html($('#allTitle')
+                            .html()
+                            .replace('0', tabList.length));
+        tabList.sort(function (ta, tb) {
+          // mruRank is in reverse order
+          return tb.mruRank - ta.mruRank;
+        });
+        resultTabList = tabList.slice(1,
+                Math.min(1 + NUM_RECENT_SHOWN, recentTabIds.length));
+        updateUITabList($searchResultTabList, resultTabList);
+      });
     });
   }
 
@@ -107,8 +155,17 @@ $(function () {
 
   function updateUITabList(target, tabList) {
     var $tabObjs = [];
-    //debug(target.get(0) + "");
     var $target = $(target).empty();
+    if (tabList.length == 0) {
+      $('<li></li>').append('<span></span>')
+        .children()
+        .css({ display: 'block', margin: '0 auto', color: '#555' })
+        .html('no content')
+        .end()
+        .appendTo($target)
+        ;
+      return;
+    }
     for (var i = 0; i < tabList.length; i++) {
       var tab = tabList[i];
       var $tab = $('<li class="tab"></li>')
@@ -127,7 +184,6 @@ $(function () {
       if (tab.highlighted) {
         $tab.addClass('highlight');
       }
-      //debug($tab.attr('tabIdx'));
       $target.append($tab);
     }
   }
@@ -138,7 +194,7 @@ $(function () {
   }
 
   function bindTabClickHandler(container) {
-    $(container).on('click', 'li.tab', function (e) {
+    $(container).on('click', TAB_ITEM_SELECTOR, function (e) {
       switchToTab(parseInt($(this).attr('tabIdx')));
       //var $this = $(this);
       //debug($this.attr('tabIdx') + " is clicked");
@@ -149,16 +205,18 @@ $(function () {
   function searchTabs(query) {
     //debug('query:' + query);
     var results = {};
-    var indexes = [tabSearchIndex.titles, tabSearchIndex.urls];
-    for (var i = 0; i < indexes.length; i++) {
-      for (var key in indexes[i]) {
-        if (key.search(query) != -1) {
-          for (var j = 0; j < indexes[i][key].length; j++) {
-            var tab = indexes[i][key][j];
-            //debug(tab.tabId);
-            var tabId = tab.tabId;
-            if (! (tabId in results)) {
-              results[tabId] = tab;
+    if (query.length >= MIN_QUERY_LEN) {
+      var indexes = [tabSearchIndex.titles, tabSearchIndex.urls];
+      for (var i = 0; i < indexes.length; i++) {
+        for (var key in indexes[i]) {
+          if (key.search(query) != -1) {
+            for (var j = 0; j < indexes[i][key].length; j++) {
+              var tab = indexes[i][key][j];
+              //debug(tab.tabId);
+              var tabId = tab.tabId;
+              if (! (tabId in results)) {
+                results[tabId] = tab;
+              }
             }
           }
         }
@@ -172,13 +230,11 @@ $(function () {
     results = resultsArr;
 
     //debug('got ' + results.length + ' results');
-    $searchResultsArea = $('#results');
-    $searchResultsArea.children('span.resultsTitle').html('results');
+    $resultsTitle.html('results (' + results.length + ')');
     // Save the current finished query for camparing with later input values
     $searchInputBox.data("currentQuery", query);
-    if (results.length) {
-      updateUITabList($searchResultsArea.children(TAB_LIST_SELECTOR), results);
-    }
+    selectNone(); // unselect currently selected item
+    updateUITabList($searchResultTabList, results);
   }
 
   function initSearchComp() {
@@ -190,58 +246,66 @@ $(function () {
       }
     })
     .on('keyup', function (e) {
+      // User isn't typing, just navigating with arrow keys
       if (e.keyCode == KEYCODE_DOWN || e.keyCode == KEYCODE_UP
           || e.keyCode == KEYCODE_ENTER) {
-    return;
+        return;
       }
+
+      // This could happen when popup is triggered by shortcut keys. Because
+      // the search input element gets focus as soon as the page loads, the
+      // keyup event from the shortcut keys may sneak in if the user had
+      // pushed the keys a little bit longer
+      if (e.keyCode != KEYCODE_BACKSPACE && $searchInputBox.val().length == 0) {
+        return;
+      }
+
       var timeout = setTimeout(function () {
         var query = $searchInputBox.val().trim().toLowerCase();
-    // Do nothing if the query hasn't changed since last finished search
-    if (query == $searchInputBox.data("currentQuery")) {
-          return;
-    }
-        $('#results>ul.tabList').empty();
-        //debug('search for ' + query);
-        if (query.length < minQueryLen) {
-          // Have to update this otherwise later searches won't start
-          $searchInputBox.data("currentQuery", query);
+        // Do nothing if the query hasn't changed since last finished search
+        if (query == $searchInputBox.data("currentQuery")) {
           return;
         }
+
+        //debug('search for ' + query);
         searchTabs(query);
       }, 300);
     })
-    //.focus() // TODO make sure it works
     ;
     setCaretToPos($searchInputBox.get(0), 0);
+  }
+
+  function selectNone() {
+    $('ul.tabList>li.tab.preselect').removeClass('preselect');
   }
 
   function moveSelect(direction) {
     //debug(direction);
     var $tabLists = $(TAB_LIST_SELECTOR);
     var numTabLists = $tabLists.length;
-    debug('numTabLists='+numTabLists);
+    //debug('numTabLists='+numTabLists);
     
     var $currentSelected = $('ul.tabList>li.tab.preselect');
     var i = -1; // current selected tab list index
 
     if ($currentSelected.length) {
       var navFunc = direction > 0 ? $currentSelected.next : $currentSelected.prev;
-      debug('deselect current');
+      //debug('deselect current');
       $currentSelected.removeClass('preselect');
-      $newSelect = navFunc.call($currentSelected, 'li.tab');
+      $newSelect = navFunc.call($currentSelected, TAB_ITEM_SELECTOR);
       if ($newSelect.length) {
         $newSelect.addClass('preselect');
         //return true;
         return false;
       } else {
-        debug('cross lists');
+        //debug('cross lists');
         var $list = $currentSelected.parent(TAB_LIST_SELECTOR);
         $tabLists.each(function (idx, elem) {
-          debug('elem='+elem);
-          debug('idx='+idx);
+          //debug('elem='+elem);
+          //debug('idx='+idx);
           if (elem == $list.get(0)) {
             i = idx;
-            debug('i='+i);
+            //debug('i='+i);
             return false; // break out from each
           }
         });
@@ -254,7 +318,7 @@ $(function () {
       if (direction > 0) {
         i++;
         if (i >= numTabLists) {
-          debug('at bottom');
+          //debug('at bottom');
           $currentSelected.addClass('preselect');
           //return true;
           return false;
@@ -263,15 +327,15 @@ $(function () {
       } else {
         i--;
         if (i < 0) {
-          debug('at top');
+          //debug('at top');
           $currentSelected.addClass('preselect');
           //setCaretToEnd($searchInputBox.get(0));
           return false;
         }
         childSelector = 'li.tab:last-child';
       }
-      $nextList = $tabLists.filter(':eq('+i+')');
-    } while ($nextList.children().length == 0);
+      $nextList = $tabLists.filter(":eq("+i+")");
+    } while ($nextList.children(TAB_ITEM_SELECTOR).length == 0);
 
     $nextList
       .children(childSelector).addClass('preselect');
@@ -309,7 +373,9 @@ $(function () {
   }
 
   function init() {
-    dumpCurrentTab();
+    //dumpCurrentWindow();
+    //dumpCurrentTab();
+
     // Create all tabs list and insert into popup.html  
     createAllTabList();
     
