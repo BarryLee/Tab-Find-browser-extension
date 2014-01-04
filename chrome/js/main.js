@@ -279,66 +279,75 @@ $(function () {
     $('ul.tabList>li.tab.preselect').removeClass('preselect');
   }
 
-  function moveSelect(direction) {
-    //debug(direction);
-    var $tabLists = $(TAB_LIST_SELECTOR);
+  function findNextItemCrossLists($tabLists, $currentSelected, direction) {
+    //debug('cross lists');
     var numTabLists = $tabLists.length;
-    //debug('numTabLists='+numTabLists);
-    
-    var $currentSelected = $('ul.tabList>li.tab.preselect');
     var i = -1; // current selected tab list index
 
     if ($currentSelected.length) {
-      var navFunc = direction > 0 ? $currentSelected.next : $currentSelected.prev;
-      //debug('deselect current');
-      $currentSelected.removeClass('preselect');
-      $newSelect = navFunc.call($currentSelected, TAB_ITEM_SELECTOR);
-      if ($newSelect.length) {
-        $newSelect.addClass('preselect');
-        //return true;
-        return false;
-      } else {
-        //debug('cross lists');
-        var $list = $currentSelected.parent(TAB_LIST_SELECTOR);
-        $tabLists.each(function (idx, elem) {
-          //debug('elem='+elem);
-          //debug('idx='+idx);
-          if (elem == $list.get(0)) {
-            i = idx;
-            //debug('i='+i);
-            return false; // break out from each
-          }
-        });
-      }
+      var $list = $currentSelected.parent(TAB_LIST_SELECTOR);
+      $tabLists.each(function (idx, elem) {
+        if (elem == $list.get(0)) {
+          i = idx;
+          return false; // break out from each
+        }
+      });
     }
 
     var childSelector;
     var $nextList;
+    // Find the next non-empty list in direction
     do {
       if (direction > 0) {
         i++;
         if (i >= numTabLists) {
           //debug('at bottom');
-          $currentSelected.addClass('preselect');
-          //return true;
-          return false;
+          return $currentSelected;
         }
         childSelector = 'li.tab:first-child';
       } else {
         i--;
         if (i < 0) {
           //debug('at top');
-          $currentSelected.addClass('preselect');
           //setCaretToEnd($searchInputBox.get(0));
-          return false;
+          return $currentSelected;
         }
         childSelector = 'li.tab:last-child';
       }
       $nextList = $tabLists.filter(":eq("+i+")");
+      //debug($nextList.get(0));
     } while ($nextList.children(TAB_ITEM_SELECTOR).length == 0);
 
-    $nextList
-      .children(childSelector).addClass('preselect');
+    return $nextList.children(childSelector);
+  }
+
+  function findNextItemOnLists($tabLists, $currentSelected, direction) {
+
+    var $nextSelect;
+
+    if ($currentSelected.length) {
+      var navFunc = direction > 0 ? $currentSelected.next : $currentSelected.prev;
+      //debug('deselect current');
+      $nextSelect = navFunc.call($currentSelected, TAB_ITEM_SELECTOR);
+    }
+
+    if (!($nextSelect && $nextSelect.length)) {
+      $nextSelect = findNextItemCrossLists($tabLists, $currentSelected, direction);
+    }
+
+    return $nextSelect;
+  }
+
+  function moveSelect(direction) {
+    //debug(direction);
+    var $tabLists = $(TAB_LIST_SELECTOR);
+    //debug('numTabLists='+numTabLists);
+    
+    var $currentSelected = $('ul.tabList>li.tab.preselect');
+    $currentSelected.removeClass('preselect');
+
+    var $nextSelect = findNextItemOnLists($tabLists, $currentSelected, direction);
+    $nextSelect.addClass('preselect');
     return false;
   }
 
