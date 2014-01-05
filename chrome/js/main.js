@@ -25,7 +25,6 @@ $(function () {
   var MIN_QUERY_LEN = 2;
   var NUM_RECENT_SHOWN = 5;
 
-  var currentWinId = chrome.windows.WINDOW_ID_CURRENT;
 
   function debug(msg) {
     if (devMode) {
@@ -36,7 +35,7 @@ $(function () {
   }
 
   function dumpCurrentTab() {
-    chrome.tabs.query({active: true, windowId: currentWinId}, function (tab) {
+    chrome.tabs.query({active: true, windowId: chrome.windows.WINDOW_ID_CURRENT}, function (tab) {
       tab = tab[0];
       debug("current tab=" + tab.index);
       for (var prop in tab) {
@@ -60,7 +59,7 @@ $(function () {
       chrome.storage.local.get(key, function (item) {
         //debug(item[key]);
         var curWinRecentTabs = item[key] || [];
-        callback(curWinRecentTabs);
+        callback(win.id, curWinRecentTabs);
       });
     });
   }
@@ -73,9 +72,9 @@ $(function () {
     this.favIconUrl = tab.favIconUrl;
     this.index = tab.index;
     this.highlighted = tab.highlighted;
+    /*
     if (tab.status != 'complete') {
       var _this = this;
-      /*
       chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
         if (_this.tabId == tabId) {
           _this.status = changeInfo.status || tab.status;
@@ -87,8 +86,8 @@ $(function () {
           }
         }
       });
-      */
     }
+    */
   }
 
   TabFuture.prototype.onReady = function (callback) {
@@ -131,7 +130,7 @@ $(function () {
   }
 
   function createAllTabList() {
-    getRecentTabsRecord(function (recentTabIds) {
+    getRecentTabsRecord(function (currentWinId, recentTabIds) {
       sysQueryTabs({windowId: currentWinId}, recentTabIds, function (tabList) {
         updateSearchIndex(tabList);
         updateUITabList($allTabList, tabList);
@@ -166,26 +165,24 @@ $(function () {
         ;
       return;
     }
+    var tabElemList = [];
     for (var i = 0; i < tabList.length; i++) {
       var tab = tabList[i];
-      var $tab = $('<li class="tab"></li>')
-              .append('<img class="tabFavicon"/>')
-              .children('.tabFavicon')
-                .attr('src', tab.favIconUrl)
-              .end()
-              .append('<span class="tabTitle"></span>')
-              .children('.tabTitle')
-                .html(formatTabTitle(tab.title||tab.url))
-                .attr('title', tab.title||tab.url)
-              .end()
-              .attr('tabId', tab.tabId)
-              .attr('tabIdx', tab.index)
-              ;
-      if (tab.highlighted) {
-        $tab.addClass('highlight');
-      }
-      $target.append($tab);
+      var tabTitle = tab.title || tab.url;
+      var tabElem = '<li class="tab' 
+                        + (tab.highlighted ? ' highlight' : '') + '" '
+                        + 'tabIdx="' + tab.index + '">'
+                    + '<img class="tabFavicon" '
+                          + 'src="' + tab.favIconUrl + '"/>'
+                    + '<span class="tabTitle" title="' + tabTitle + '">'
+                      + formatTabTitle(tabTitle)
+                    + '</span>'
+                  + '</li>'
+                  ;
+
+      tabElemList.push(tabElem);
     }
+    $target.get(0).innerHTML = tabElemList.join('');
   }
 
   function switchToTab(tabIdx) {
