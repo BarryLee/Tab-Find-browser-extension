@@ -171,12 +171,20 @@ $(function () {
       var tabTitle = tab.title || tab.url;
       var tabElem = '<li class="tab' 
                         + (tab.highlighted ? ' highlight' : '') + '" '
+                        + 'tabId="' + tab.tabId + '" '
                         + 'tabIdx="' + tab.index + '">'
                     + '<img class="tabFavicon" '
                           + 'src="' + tab.favIconUrl + '"/>'
                     + '<span class="tabTitle" title="' + tabTitle + '">'
                       + formatTabTitle(tabTitle)
                     + '</span>'
+                    + '<div class="close">'
+                      +  '<div class="center"></div>'
+                      +  '<div class="top"></div>'
+                      +  '<div class="right"></div>'
+                      +  '<div class="bottom"></div>'
+                      +  '<div class="left"></div>'
+                    + '</div>'
                   + '</li>'
                   ;
 
@@ -190,12 +198,19 @@ $(function () {
     chrome.tabs.highlight({ tabs: tabIdx }, noop);
   }
 
+  function closeTab($tab) {
+    chrome.tabs.remove(parseInt($tab.attr('tabId')), function () {
+      $tab.fadeOut(100, function () { $tab.remove() });
+    });
+  }
+
   function bindTabClickHandler(container) {
     $(container).on('click', TAB_ITEM_SELECTOR, function (e) {
       switchToTab(parseInt($(this).attr('tabIdx')));
-      //var $this = $(this);
-      //debug($this.attr('tabIdx') + " is clicked");
-      //chrome.tabs.highlight({ tabs: parseInt($this.attr('tabIdx')) }, noop);
+    })
+    .on('click', 'li.tab>div.close', function (e) {
+      e.stopPropagation();
+      closeTab($(this).parent(TAB_ITEM_SELECTOR));
     });
   }
 
