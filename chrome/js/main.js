@@ -338,6 +338,37 @@ $(function () {
     return $nextSelect;
   }
 
+  function scrollPage($currentSelect, $prevSelect, direction) {
+    var distance         = 45, // the distance from a selected item to border
+        $win             = $(window),
+        currentScrollTop = $win.scrollTop();
+
+    if ($currentSelect == $prevSelect) { // at top or bottom; let the scroll bar
+                                         // also go to top or bottom
+      $win.scrollTop(currentScrollTop + (direction > 0 ? 1 : -1) * distance);
+      return;
+    }
+
+    var curSelectOffsetTop  = $currentSelect.offset().top,
+        prevSelectOffsetTop = $prevSelect.offset().top,
+        // the distance to scroll the page to keep the select
+        // items in steady position
+        step                = curSelectOffsetTop - prevSelectOffsetTop;
+
+    if (direction > 0 && // moving down
+        curSelectOffsetTop + distance >
+            currentScrollTop + $(window).height() // out of visible area 
+       ) {
+      // scroll down
+      $(window).scrollTop(currentScrollTop + step);
+    }
+    else if (curSelectOffsetTop - distance < // moving up, out of visible area
+                currentScrollTop) {
+      // scroll up
+      $(window).scrollTop(currentScrollTop + step);
+    }
+  }
+
   function moveSelect(direction) {
     //debug(direction);
     var $tabLists = $(TAB_LIST_SELECTOR);
@@ -348,6 +379,8 @@ $(function () {
 
     var $nextSelect = findNextItemOnLists($tabLists, $currentSelected, direction);
     $nextSelect.addClass('preselect');
+    // Move scroll bar to keep the selected item visible
+    scrollPage($nextSelect, $currentSelected, direction);
     return false;
   }
 
